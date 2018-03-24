@@ -1,36 +1,295 @@
 {
     "model" : {
         "architecture":         "Full Yolo",
-        "input_size":           416,
+        "input_size":           608,
         "anchors":              [0.57273, 0.677385, 1.87446, 2.06253, 3.33843, 5.47434, 7.88282, 3.52778, 9.77052, 9.16828],
-        "max_box_per_image":    10,        
-        "labels":               ["raccoon"]
+        "max_box_per_image":    100,
+        "labels":               ["person"]
     },
 
     "train": {
-        "train_image_folder":   "/home/andy/github/raccoon_dataset/images/",
-        "train_annot_folder":   "/home/andy/github/raccoon_dataset/annotations/",     
-          
-        "train_times":          10,
-        "pretrained_weights":   "full_yolo_raccoon.h5",
-        "batch_size":           16,
+        "gpu_count":            2,
+        "images_dir":           "/home/trassir/datasets/peoples",
+        "datasets_to_train":
+        [
+          {
+            "path": "prw",
+            "count_to_process": "500",
+            "only_verified": false,
+            "max_bbox_area": 1.0,
+            "min_bbox_area": 0.0005
+          },
+          {
+            "path": "coco/2017/train2017",
+            "count_to_process": 0,
+            "only_verified": false,
+            "max_bbox_area": 1.0,
+            "min_bbox_area": 0.0005
+          },
+          {
+            "path": "military",
+            "count_to_process": "200",
+            "only_verified": true,
+            "max_bbox_area": 1.0,
+            "min_bbox_area": 0.0015  
+          },
+          {
+            "path": "queue_dataset",
+            "count_to_process": "all",
+            "only_verified": true,
+            "max_bbox_area": 1.0,
+            "min_bbox_area": 0.0005
+          },
+          {
+            "path": "cctv1/corridor_1",
+            "count_to_process": "all",
+            "only_verified": true,
+            "max_bbox_area": 1.0,
+            "min_bbox_area": 0.0005
+          },
+          {
+            "path": "cctv1/corridor_2",
+            "count_to_process": "all",
+            "only_verified": true,
+            "max_bbox_area": 1.0,
+            "min_bbox_area": 0.0005
+          },
+          {
+            "path": "cctv1/corridor_3",
+            "count_to_process": "all",
+            "only_verified": true,
+            "max_bbox_area": 1.0,
+            "min_bbox_area": 0.0005
+          },
+          {
+            "path": "cctv1/entrance",
+            "count_to_process": "all",
+            "only_verified": true,
+            "max_bbox_area": 1.0,
+            "min_bbox_area": 0.0005
+          },
+          {
+            "path": "cctv1/hr",
+            "count_to_process": "all",
+            "only_verified": true,
+            "max_bbox_area": 1.0,
+            "min_bbox_area": 0.0005
+          },
+          {
+            "path": "cctv1/kitchen",
+            "count_to_process": "all",
+            "only_verified": true,
+            "max_bbox_area": 1.0,
+            "min_bbox_area": 0.0005
+          },
+          {
+            "path": "videos/rzd_many_peoples_0",
+            "count_to_process": "all",
+            "only_verified": true,
+            "max_bbox_area": 1.0,
+            "min_bbox_area": 0.0015
+          },
+          {
+            "path": "videos/contract_back_0",
+            "count_to_process": "all",
+            "only_verified": true,
+            "max_bbox_area": 1.0,
+            "min_bbox_area": 0.0015
+          },
+          {
+            "path": "videos/contract_back_1",
+            "count_to_process": "all",
+            "only_verified": true,
+            "max_bbox_area": 1.0,
+            "min_bbox_area": 0.0015
+          },
+          {
+            "path": "videos/maidan",
+            "count_to_process": "all",
+            "only_verified": true,
+            "max_bbox_area": 1.0,
+            "min_bbox_area": 0.0015
+          },
+          {
+            "path": "videos/shop_0",
+            "count_to_process": "all",
+            "only_verified": true,
+            "max_bbox_area": 1.0,
+            "min_bbox_area": 0.0015
+          },
+          {
+            "path": "videos/shop_1",
+            "count_to_process": "all",
+            "only_verified": true,
+            "max_bbox_area": 1.0,
+            "min_bbox_area": 0.0015
+          },
+          {
+            "path": "videos/shop_2",
+            "count_to_process": "all",
+            "only_verified": true,
+            "max_bbox_area": 1.0,
+            "min_bbox_area": 0.0015
+          },
+          {
+            "path": "videos/shop_3",
+            "count_to_process": "all",
+            "only_verified": true,
+            "max_bbox_area": 1.0,
+            "min_bbox_area": 0.0015
+          },
+          {
+            "path": "videos/shop_4",
+            "count_to_process": "all",
+            "only_verified": true,
+            "max_bbox_area": 1.0,
+            "min_bbox_area": 0.0015
+          },
+          {
+            "path": "videos/shop_5",
+            "count_to_process": "all",
+            "only_verified": true,
+            "max_bbox_area": 1.0,
+            "min_bbox_area": 0.0015
+          },
+          {
+            "path": "videos/top_queue_0",
+            "count_to_process": "all",
+            "only_verified": true,
+            "max_bbox_area": 1.0,
+            "min_bbox_area": 0.0015
+          },
+          {
+            "path": "videos/top_queue_1",
+            "count_to_process": "all",
+            "only_verified": true,
+            "max_bbox_area": 1.0,
+            "min_bbox_area": 0.0015
+          },
+          {
+            "path": "videos/top_queue_2",
+            "count_to_process": "all",
+            "only_verified": true,
+            "max_bbox_area": 1.0,
+            "min_bbox_area": 0.0015
+          },
+          {
+            "path": "videos/top_queue_3",
+            "count_to_process": "all",
+            "only_verified": true,
+            "max_bbox_area": 1.0,
+            "min_bbox_area": 0.0015
+          },
+          {
+            "path": "videos/top_queue_4",
+            "count_to_process": "all",
+            "only_verified": true,
+            "max_bbox_area": 1.0,
+            "min_bbox_area": 0.0015
+          },
+          {
+            "path": "videos/top_queue_5",
+            "count_to_process": "all",
+            "only_verified": true,
+            "max_bbox_area": 1.0,
+            "min_bbox_area": 0.0015
+          },
+          {
+            "path": "videos/top_queue_6",
+            "count_to_process": "all",
+            "only_verified": true,
+            "max_bbox_area": 1.0,
+            "min_bbox_area": 0.0015
+          },
+          {
+            "path": "videos/weed",
+            "count_to_process": "all",
+            "only_verified": true,
+            "max_bbox_area": 1.0,
+            "min_bbox_area": 0.0015
+          },
+          {
+            "path": "videos/contract_back_2",
+            "count_to_process": "all",
+            "only_verified": true,
+            "max_bbox_area": 1.0,
+            "min_bbox_area": 0.0015
+          },
+          {
+            "path": "videos/contract_back_3",
+            "count_to_process": "all",
+            "only_verified": true,
+            "max_bbox_area": 1.0,
+            "min_bbox_area": 0.0015
+          },
+          {
+            "path": "videos/contract_back_4",
+            "count_to_process": "all",
+            "only_verified": true,
+            "max_bbox_area": 1.0,
+            "min_bbox_area": 0.0015
+          },
+          {
+            "path": "videos/maidan",
+            "count_to_process": "all",
+            "only_verified": true,
+            "max_bbox_area": 1.0,
+            "min_bbox_area": 0.0015
+          }
+        ],
+        "datasets_to_validate":
+        [
+          {
+            "path": "videos/rzd_0",
+            "count_to_process": "all",
+            "only_verified": true,
+            "max_bbox_area": 1.0,
+            "min_bbox_area": 0.0015
+          },
+          {
+            "path": "videos/rzd_1",
+            "count_to_process": "all",
+            "only_verified": true,
+            "max_bbox_area": 1.0,
+            "min_bbox_area": 0.0015
+          },
+          {
+            "path": "videos/rzd_5",
+            "count_to_process": "all",
+            "only_verified": true,
+            "max_bbox_area": 1.0,
+            "min_bbox_area": 0.0015
+          },
+          {
+            "path": "videos/rzd_many_peoples_0",
+            "count_to_process": "all",
+            "only_verified": true,
+            "max_bbox_area": 1.0,
+            "min_bbox_area": 0.0015
+          },
+          {
+            "path": "videos/rzd_many_peoples_1",
+            "count_to_process": "all",
+            "only_verified": true,
+            "max_bbox_area": 1.0,
+            "min_bbox_area": 0.0015
+          }
+        ],
+        "train_times":          1,
+
+        "pretrained_weights":   "full_yolo/weights.00-0.0.h5",
+        "batch_size":           32,
         "learning_rate":        1e-4,
-        "nb_epoch":             50,
-        "warmup_epochs":        3,
+        "nb_epoch":             2000,
+        "warmup_epochs":        0,
 
-        "object_scale":         5.0 ,
+        "object_scale":         5.0,
         "no_object_scale":      1.0,
-        "coord_scale":          1.0,
-        "class_scale":          1.0,
+        "coord_scale":          1.5,
+        "class_scale":          0.0,
+        "saved_weights_dir":    "full_yolo",
 
-        "saved_weights_name":   "full_yolo_raccoon.h5",
+        "save_every_n_epoch":   5,
         "debug":                true
-    },
-
-    "valid": {
-        "valid_image_folder":   "",
-        "valid_annot_folder":   "",
-
-        "valid_times":          1
     }
 }

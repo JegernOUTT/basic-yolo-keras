@@ -1,18 +1,90 @@
+import warnings
+
 import numpy as np
-import os
-import xml.etree.ElementTree as ET
 import tensorflow as tf
-import copy
 import cv2
+from keras.callbacks import Callback
+
+
+class ModelCheckpointDetached(Callback):
+    def __init__(self, filepath, monitor='val_loss', verbose=0,
+                 save_best_only=False, save_weights_only=False,
+                 mode='auto', period=1):
+        super(ModelCheckpointDetached, self).__init__()
+        self.monitor = monitor
+        self.verbose = verbose
+        self.filepath = filepath
+        self.save_best_only = save_best_only
+        self.save_weights_only = save_weights_only
+        self.period = period
+        self.epochs_since_last_save = 0
+
+        if mode not in ['auto', 'min', 'max']:
+            warnings.warn('ModelCheckpoint mode %s is unknown, '
+                          'fallback to auto mode.' % mode, RuntimeWarning)
+            mode = 'auto'
+
+        if mode == 'min':
+            self.monitor_op = np.less
+            self.best = np.Inf
+        elif mode == 'max':
+            self.monitor_op = np.greater
+            self.best = -np.Inf
+        else:
+            if 'acc' in self.monitor or self.monitor.startswith('fmeasure'):
+                self.monitor_op = np.greater
+                self.best = -np.Inf
+            else:
+                self.monitor_op = np.less
+                self.best = np.Inf
+
+    def detachmodel(self, m):
+        return m.layers[-2]
+
+    def on_epoch_end(self, epoch, logs=None):
+        logs = logs or {}
+        self.epochs_since_last_save += 1
+        if self.epochs_since_last_save >= self.period:
+            self.epochs_since_last_save = 0
+            filepath = self.filepath.format(epoch=epoch, **logs)
+            if self.save_best_only:
+                current = logs.get(self.monitor)
+                if current is None:
+                    warnings.warn('Can save best model only with %s available, '
+                                  'skipping.' % self.monitor, RuntimeWarning)
+                else:
+                    if self.monitor_op(current, self.best):
+                        if self.verbose > 0:
+                            print('Epoch %05d: %s improved from %0.5f to %0.5f,'
+                                  ' saving model to %s'
+                                  % (epoch, self.monitor, self.best,
+                                     current, filepath))
+                        self.best = current
+                        if self.save_weights_only:
+                            self.detachmodel(self.model).save_weights(filepath, overwrite=True)
+                        else:
+                            self.detachmodel(self.model).save(filepath, overwrite=True)
+                    else:
+                        if self.verbose > 0:
+                            print('Epoch %05d: %s did not improve' %
+                                  (epoch, self.monitor))
+            else:
+                if self.verbose > 0:
+                    print('Epoch %05d: saving model to %s' % (epoch, filepath))
+                if self.save_weights_only:
+                    self.detachmodel(self.model).save_weights(filepath, overwrite=True)
+                else:
+                    self.detachmodel(self.model).save(filepath, overwrite=True)
+
 
 class BoundBox:
     def __init__(self, x, y, w, h, c = None, classes = None):
-        self.x     = x
-        self.y     = y
-        self.w     = w
-        self.h     = h
+        self.x = x
+        self.y = y
+        self.w = w
+        self.h = h
         
-        self.c     = c
+        self.c = c
         self.classes = classes
 
         self.label = -1
@@ -20,7 +92,7 @@ class BoundBox:
 
     def get_label(self):
         if self.label == -1:
-            self.label = np.argmax(self.classes)
+                self.label = np.argmax(self.classes)
         
         return self.label
     
@@ -29,6 +101,7 @@ class BoundBox:
             self.score = self.classes[self.get_label()]
             
         return self.score
+
 
 class WeightReader:
     def __init__(self, weight_file):
@@ -42,21 +115,23 @@ class WeightReader:
     def reset(self):
         self.offset = 4
 
+
 def normalize(image):
     image = image / 255.
     
     return image
 
+
 def bbox_iou(box1, box2):
-    x1_min  = box1.x - box1.w/2
-    x1_max  = box1.x + box1.w/2
-    y1_min  = box1.y - box1.h/2
-    y1_max  = box1.y + box1.h/2
+    x1_min = box1.x - box1.w/2
+    x1_max = box1.x + box1.w/2
+    y1_min = box1.y - box1.h/2
+    y1_max = box1.y + box1.h/2
     
-    x2_min  = box2.x - box2.w/2
-    x2_max  = box2.x + box2.w/2
-    y2_min  = box2.y - box2.h/2
-    y2_max  = box2.y + box2.h/2
+    x2_min = box2.x - box2.w/2
+    x2_max = box2.x + box2.w/2
+    y2_min = box2.y - box2.h/2
+    y2_max = box2.y + box2.h/2
     
     intersect_w = interval_overlap([x1_min, x1_max], [x2_min, x2_max])
     intersect_h = interval_overlap([y1_min, y1_max], [y2_min, y2_max])
@@ -66,7 +141,8 @@ def bbox_iou(box1, box2):
     union = box1.w * box1.h + box2.w * box2.h - intersect
     
     return float(intersect) / union
-    
+
+
 def interval_overlap(interval_a, interval_b):
     x1, x2 = interval_a
     x3, x4 = interval_b
@@ -75,32 +151,35 @@ def interval_overlap(interval_a, interval_b):
         if x4 < x1:
             return 0
         else:
-            return min(x2,x4) - x1
+            return min(x2, x4) - x1
     else:
         if x2 < x3:
             return 0
         else:
-            return min(x2,x4) - x3  
+            return min(x2, x4) - x3
+
 
 def draw_boxes(image, boxes, labels):
     
     for box in boxes:
-        xmin  = int((box.x - box.w/2) * image.shape[1])
-        xmax  = int((box.x + box.w/2) * image.shape[1])
-        ymin  = int((box.y - box.h/2) * image.shape[0])
-        ymax  = int((box.y + box.h/2) * image.shape[0])
+        xmin = int((box.x - box.w/2) * image.shape[1])
+        xmax = int((box.x + box.w/2) * image.shape[1])
+        ymin = int((box.y - box.h/2) * image.shape[0])
+        ymax = int((box.y + box.h/2) * image.shape[0])
 
-        cv2.rectangle(image, (xmin,ymin), (xmax,ymax), (0,255,0), 3)
-        cv2.putText(image, 
-                    labels[box.get_label()] + ' ' + str(box.get_score()), 
-                    (xmin, ymin - 13), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 
-                    1e-3 * image.shape[0], 
-                    (0,255,0), 2)
+        cv2.rectangle(image, (xmin, ymin), (xmax, ymax), (0,255,0), 2)
+        # cv2.putText(image,
+        #             labels[box.get_label()] + ' ' + str(box.get_score()),
+        #             (xmin, ymin - 13),
+         #            cv2.FONT_HERSHEY_SIMPLEX,
+         #            7e-4 * image.shape[0],
+           #          (0, 255, 0), 2)
         
     return image        
-        
-def decode_netout(netout, obj_threshold, nms_threshold, anchors, nb_class):
+
+
+def decode_netout(netout, obj_threshold,
+                  nms_threshold, anchors, nb_class):
     grid_h, grid_w, nb_box = netout.shape[:3]
 
     boxes = []
@@ -151,8 +230,10 @@ def decode_netout(netout, obj_threshold, nms_threshold, anchors, nb_class):
     
     return boxes
 
+
 def sigmoid(x):
     return 1. / (1. + np.exp(-x))
+
 
 def softmax(x, axis=-1, t=-100.):
     x = x - np.max(x)
