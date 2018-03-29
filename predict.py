@@ -41,8 +41,6 @@ def _main_(args):
     weights_path = args.weights
     image_path = args.input
 
-    os.environ["CUDA_VISIBLE_DEVICES"] = args.cuda_device
-
     with open(config_path) as config_buffer:
         config = json.load(config_buffer)
 
@@ -73,6 +71,7 @@ def _main_(args):
     # video_reader = cv2.VideoCapture('/media/oem/022cfb2b-3c52-4dfe-a5fb-c5fe826db5e3/samples/abandonment/rzd2/left/5.avi')
     # video_reader = cv2.VideoCapture('/media/oem/022cfb2b-3c52-4dfe-a5fb-c5fe826db5e3/samples/abandonment/rzd2/left/0.avi')
     # video_reader = cv2.VideoCapture('/media/oem/022cfb2b-3c52-4dfe-a5fb-c5fe826db5e3/samples/abandonment/rzd2/nothing/3.avi')
+    #
     # video_reader = cv2.VideoCapture('maidan.avi')
     # video_reader = cv2.VideoCapture('Militari-1.avi')
     # video_reader = cv2.VideoCapture('weed.avi')
@@ -82,6 +81,7 @@ def _main_(args):
     # video_reader = cv2.VideoCapture('/media/oem/022cfb2b-3c52-4dfe-a5fb-c5fe826db5e3/samples/queues/x5shop/0.avi')
     # video_reader = cv2.VideoCapture('/media/oem/022cfb2b-3c52-4dfe-a5fb-c5fe826db5e3/samples/queues/x5shop-may-be-copies/warehouse_up_0.avi')
     # video_reader = cv2.VideoCapture('/media/oem/022cfb2b-3c52-4dfe-a5fb-c5fe826db5e3/samples/queues-hard/касса 2-3_nzvsm_2.avi')
+    #
     # video_reader = cv2.VideoCapture('/media/oem/022cfb2b-3c52-4dfe-a5fb-c5fe826db5e3/samples/queues-hard/Очередь 3_20150323-174453--20150323-181951.tva.avi')
     # video_reader = cv2.VideoCapture('/media/oem/022cfb2b-3c52-4dfe-a5fb-c5fe826db5e3/samples/queues-hard/касса 1_20150618-110002--20150618-111330.tva.avi')
     # video_reader = cv2.VideoCapture('/media/oem/022cfb2b-3c52-4dfe-a5fb-c5fe826db5e3/samples/unsorted/VideoBK_1/ВК-2.1_20131119-110300--20131119-110500.avi')
@@ -90,11 +90,12 @@ def _main_(args):
     # video_reader = cv2.VideoCapture('/media/oem/022cfb2b-3c52-4dfe-a5fb-c5fe826db5e3/samples/queues/x5shop-big/k10.avi')
     # video_reader = cv2.VideoCapture('/media/oem/022cfb2b-3c52-4dfe-a5fb-c5fe826db5e3/samples/queues/x5shop/BAD_2_THE_BONE_x5_p9.avi')
     # video_reader = cv2.VideoCapture('/media/oem/022cfb2b-3c52-4dfe-a5fb-c5fe826db5e3/samples/queues/x5shop/AC-D4031 21_20140208-123300--20140208-125100.avi')
-    video_reader = cv2.VideoCapture('/media/oem/022cfb2b-3c52-4dfe-a5fb-c5fe826db5e3/samples/queues/x5shop/AC-D4031 2_3.avi')
+    # video_reader = cv2.VideoCapture('/media/oem/022cfb2b-3c52-4dfe-a5fb-c5fe826db5e3/samples/queues/x5shop/AC-D4031 2_3.avi')
+    video_reader = cv2.VideoCapture('/media/oem/022cfb2b-3c52-4dfe-a5fb-c5fe826db5e3/samples/очереди/кассы 8-9_20171110-192101--20171110-192601.avi')
 
     nb_frames = int(video_reader.get(cv2.CAP_PROP_FRAME_COUNT))
 
-    every_nth = 10
+    every_nth = 1
     count = 0
 
     pbar = tqdm(total=nb_frames)

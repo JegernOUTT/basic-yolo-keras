@@ -1,7 +1,10 @@
 from keras.models import Model
+import keras.backend as K
 import tensorflow as tf
 from keras.layers import Reshape, Activation, Conv2D, Input, MaxPooling2D, BatchNormalization, Flatten, Dense, Lambda
+from keras.layers.merge import add
 from keras.layers.advanced_activations import LeakyReLU
+from keras.activations import linear
 from keras.layers.merge import concatenate
 from keras.applications.mobilenet import MobileNet
 from keras.applications import InceptionV3
@@ -173,13 +176,109 @@ class FullYoloFeature(BaseFeatureExtractor):
         return image / 255.
 
 
+class FullYoloV3Feature(BaseFeatureExtractor):
+    ROW_AXIS = 1
+    COL_AXIS = 2
+    CHANNEL_AXIS = 3
+
+    @staticmethod
+    def _shortcut(input, residual):
+        """Adds a shortcut between input and residual block and merges them with "sum"
+        """
+        # Expand channels of shortcut to match residual.
+        # Stride appropriately to match residual (width, height)
+        # Should be int if network architecture is correctly configured.
+        input_shape = K.int_shape(input)
+        residual_shape = K.int_shape(residual)
+        stride_width = int(round(input_shape[FullYoloV3Feature.ROW_AXIS] / residual_shape[FullYoloV3Feature.ROW_AXIS]))
+        stride_height = int(round(input_shape[FullYoloV3Feature.COL_AXIS] / residual_shape[FullYoloV3Feature.COL_AXIS]))
+        equal_channels = input_shape[FullYoloV3Feature.CHANNEL_AXIS] == residual_shape[FullYoloV3Feature.CHANNEL_AXIS]
+
+        shortcut = input
+        # 1 X 1 conv if shape is different. Else identity.
+        if stride_width > 1 or stride_height > 1 or not equal_channels:
+            shortcut = Conv2D(filters=residual_shape[FullYoloV3Feature.CHANNEL_AXIS],
+                              kernel_size=(1, 1),
+                              strides=(stride_width, stride_height),
+                              padding="valid",
+                              kernel_initializer="he_normal",
+                              kernel_regularizer=l2(0.0001))(input)
+
+        return add([shortcut, residual])
+
+
+
+    def __init__(self, input_size):
+
+        input_image = Input(shape=(input_size, input_size, 3))
+
+        x = Conv2D(32, (3, 3), strides=(1, 1), kernel_initializer='lecun_normal', padding='same', name='conv_1', use_bias=False)(input_image)
+        x = BatchNormalization(name='norm_1')(x)
+        x = LeakyReLU(alpha=0.1)(x)
+
+        # Downsample
+        x = Conv2D(64, (3, 3), strides=(2, 2), padding='same', name='conv_2', use_bias=False)(input_image)
+        x = BatchNormalization(name='norm_1')(x)
+        x = LeakyReLU(alpha=0.1)(x)
+        res_to = x
+
+        x = Conv2D(32, (1, 1), strides=(1, 1), kernel_initializer='lecun_normal', padding='same', name='conv_3', use_bias=False)(input_image)
+        x = BatchNormalization(name='norm_1')(x)
+        x = LeakyReLU(alpha=0.1)(x)
+
+        x = Conv2D(64, (3, 3), strides=(1, 1), kernel_initializer='lecun_normal', padding='same', name='conv_4', use_bias=False)(input_image)
+        x = BatchNormalization(name='norm_1')(x)
+        x = LeakyReLU(alpha=0.1)(x)
+
+        x = self._shortcut(x, res_to)
+        x = linear(x)
+
+        # Downsample
+        x = Conv2D(128, (3, 3), strides=(2, 2), padding='same', name='conv_2', use_bias=False)(input_image)
+        x = BatchNormalization(name='norm_1')(x)
+        x = LeakyReLU(alpha=0.1)(x)
+        res_to = x
+
+        x = Conv2D(64, (1, 1), strides=(1, 1), kernel_initializer='lecun_normal', padding='same', name='conv_3', use_bias=False)(input_image)
+        x = BatchNormalization(name='norm_1')(x)
+        x = LeakyReLU(alpha=0.1)(x)
+
+        x = Conv2D(128, (3, 3), strides=(1, 1), kernel_initializer='lecun_normal', padding='same', name='conv_4', use_bias=False)(input_image)
+        x = BatchNormalization(name='norm_1')(x)
+        x = LeakyReLU(alpha=0.1)(x)
+        res_to_ = x
+
+        x = self.shortcut_layer(x, res_to)
+        x = linear(x)
+
+        x = Conv2D(64, (1, 1), strides=(1, 1), kernel_initializer='lecun_normal', padding='same', name='conv_3', use_bias=False)(input_image)
+        x = BatchNormalization(name='norm_1')(x)
+        x = LeakyReLU(alpha=0.1)(x)
+
+        x = Conv2D(128, (3, 3), strides=(1, 1), padding='same', name='conv_2', use_bias=False)(input_image)
+        x = BatchNormalization(name='norm_1')(x)
+        x = LeakyReLU(alpha=0.1)(x)
+        
+        x = self.shortcut_layer(x, res_to_)
+        x = linear(x)
+
+        # Downsample
+
+
+
+
+    def normalize(self, image):
+        pass
+
+
+
 class TinyYoloFeature(BaseFeatureExtractor):
     """docstring for ClassName"""
     def __init__(self, input_size):
         input_image = Input(shape=(input_size, input_size, 3))
 
         # Layer 1
-        x = Conv2D(16, (3,3), strides=(1,1), padding='same', name='conv_1', use_bias=False)(input_image)
+        x = Conv2D(32, (3, 3), strides=(1, 1), padding='same', name='conv_1', use_bias=False)(input_image)
         x = BatchNormalization(name='norm_1')(x)
         x = LeakyReLU(alpha=0.1)(x)
         x = MaxPooling2D(pool_size=(2, 2))(x)
