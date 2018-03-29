@@ -301,10 +301,11 @@ class BatchGenerator(Sequence):
                 x_batch[instance_count] = self.norm(img)
             else:
                 # plot image and bounding boxes for sanity check
-                for bb, class_name in all_objs:
+                for bb in all_objs:
                     if bb.x2 > bb.x1 and bb.y2 > bb.y1:
-                        cv2.rectangle(img[:, :, ::-1], (bb.x1, bb.y1), (bb.x2, bb.y2), (255, 0, 0), 3)
-                        cv2.putText(img[:, :, ::-1], bb.name,
+                        img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+                        cv2.rectangle(img, (bb.x1, bb.y1), (bb.x2, bb.y2), (255, 0, 0), 3)
+                        cv2.putText(img, bb.name,
                                     (bb.x1 + 2, bb.y1 + 12),
                                     0, 1.2e-3 * img.shape[0],
                                     (0, 255, 0), 2)

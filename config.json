@@ -9,30 +9,9 @@
 
     "train": {
         "gpu_count":            2,
-        "images_dir":           "/home/trassir/datasets/peoples",
+        "images_dir":           "/Users/sergey.vahreev/Pictures/annotations/persons",
         "datasets_to_train":
         [
-          {
-            "path": "prw",
-            "count_to_process": "500",
-            "only_verified": false,
-            "max_bbox_area": 1.0,
-            "min_bbox_area": 0.0005
-          },
-          {
-            "path": "coco/2017/train2017",
-            "count_to_process": 0,
-            "only_verified": false,
-            "max_bbox_area": 1.0,
-            "min_bbox_area": 0.0005
-          },
-          {
-            "path": "military",
-            "count_to_process": "200",
-            "only_verified": true,
-            "max_bbox_area": 1.0,
-            "min_bbox_area": 0.0015  
-          },
           {
             "path": "queue_dataset",
             "count_to_process": "all",
@@ -41,238 +20,56 @@
             "min_bbox_area": 0.0005
           },
           {
-            "path": "cctv1/corridor_1",
+            "path": "corridor_1",
             "count_to_process": "all",
             "only_verified": true,
             "max_bbox_area": 1.0,
             "min_bbox_area": 0.0005
           },
           {
-            "path": "cctv1/corridor_2",
+            "path": "corridor_2",
             "count_to_process": "all",
             "only_verified": true,
             "max_bbox_area": 1.0,
             "min_bbox_area": 0.0005
           },
           {
-            "path": "cctv1/corridor_3",
+            "path": "corridor_3",
             "count_to_process": "all",
             "only_verified": true,
             "max_bbox_area": 1.0,
             "min_bbox_area": 0.0005
           },
           {
-            "path": "cctv1/entrance",
+            "path": "entrance",
             "count_to_process": "all",
             "only_verified": true,
             "max_bbox_area": 1.0,
             "min_bbox_area": 0.0005
           },
           {
-            "path": "cctv1/hr",
+            "path": "hr",
             "count_to_process": "all",
             "only_verified": true,
             "max_bbox_area": 1.0,
             "min_bbox_area": 0.0005
           },
           {
-            "path": "cctv1/kitchen",
+            "path": "kitchen",
             "count_to_process": "all",
             "only_verified": true,
             "max_bbox_area": 1.0,
             "min_bbox_area": 0.0005
-          },
-          {
-            "path": "videos/rzd_many_peoples_0",
-            "count_to_process": "all",
-            "only_verified": true,
-            "max_bbox_area": 1.0,
-            "min_bbox_area": 0.0015
-          },
-          {
-            "path": "videos/contract_back_0",
-            "count_to_process": "all",
-            "only_verified": true,
-            "max_bbox_area": 1.0,
-            "min_bbox_area": 0.0015
-          },
-          {
-            "path": "videos/contract_back_1",
-            "count_to_process": "all",
-            "only_verified": true,
-            "max_bbox_area": 1.0,
-            "min_bbox_area": 0.0015
-          },
-          {
-            "path": "videos/maidan",
-            "count_to_process": "all",
-            "only_verified": true,
-            "max_bbox_area": 1.0,
-            "min_bbox_area": 0.0015
-          },
-          {
-            "path": "videos/shop_0",
-            "count_to_process": "all",
-            "only_verified": true,
-            "max_bbox_area": 1.0,
-            "min_bbox_area": 0.0015
-          },
-          {
-            "path": "videos/shop_1",
-            "count_to_process": "all",
-            "only_verified": true,
-            "max_bbox_area": 1.0,
-            "min_bbox_area": 0.0015
-          },
-          {
-            "path": "videos/shop_2",
-            "count_to_process": "all",
-            "only_verified": true,
-            "max_bbox_area": 1.0,
-            "min_bbox_area": 0.0015
-          },
-          {
-            "path": "videos/shop_3",
-            "count_to_process": "all",
-            "only_verified": true,
-            "max_bbox_area": 1.0,
-            "min_bbox_area": 0.0015
-          },
-          {
-            "path": "videos/shop_4",
-            "count_to_process": "all",
-            "only_verified": true,
-            "max_bbox_area": 1.0,
-            "min_bbox_area": 0.0015
-          },
-          {
-            "path": "videos/shop_5",
-            "count_to_process": "all",
-            "only_verified": true,
-            "max_bbox_area": 1.0,
-            "min_bbox_area": 0.0015
-          },
-          {
-            "path": "videos/top_queue_0",
-            "count_to_process": "all",
-            "only_verified": true,
-            "max_bbox_area": 1.0,
-            "min_bbox_area": 0.0015
-          },
-          {
-            "path": "videos/top_queue_1",
-            "count_to_process": "all",
-            "only_verified": true,
-            "max_bbox_area": 1.0,
-            "min_bbox_area": 0.0015
-          },
-          {
-            "path": "videos/top_queue_2",
-            "count_to_process": "all",
-            "only_verified": true,
-            "max_bbox_area": 1.0,
-            "min_bbox_area": 0.0015
-          },
-          {
-            "path": "videos/top_queue_3",
-            "count_to_process": "all",
-            "only_verified": true,
-            "max_bbox_area": 1.0,
-            "min_bbox_area": 0.0015
-          },
-          {
-            "path": "videos/top_queue_4",
-            "count_to_process": "all",
-            "only_verified": true,
-            "max_bbox_area": 1.0,
-            "min_bbox_area": 0.0015
-          },
-          {
-            "path": "videos/top_queue_5",
-            "count_to_process": "all",
-            "only_verified": true,
-            "max_bbox_area": 1.0,
-            "min_bbox_area": 0.0015
-          },
-          {
-            "path": "videos/top_queue_6",
-            "count_to_process": "all",
-            "only_verified": true,
-            "max_bbox_area": 1.0,
-            "min_bbox_area": 0.0015
-          },
-          {
-            "path": "videos/weed",
-            "count_to_process": "all",
-            "only_verified": true,
-            "max_bbox_area": 1.0,
-            "min_bbox_area": 0.0015
-          },
-          {
-            "path": "videos/contract_back_2",
-            "count_to_process": "all",
-            "only_verified": true,
-            "max_bbox_area": 1.0,
-            "min_bbox_area": 0.0015
-          },
-          {
-            "path": "videos/contract_back_3",
-            "count_to_process": "all",
-            "only_verified": true,
-            "max_bbox_area": 1.0,
-            "min_bbox_area": 0.0015
-          },
-          {
-            "path": "videos/contract_back_4",
-            "count_to_process": "all",
-            "only_verified": true,
-            "max_bbox_area": 1.0,
-            "min_bbox_area": 0.0015
-          },
-          {
-            "path": "videos/maidan",
-            "count_to_process": "all",
-            "only_verified": true,
-            "max_bbox_area": 1.0,
-            "min_bbox_area": 0.0015
           }
         ],
         "datasets_to_validate":
         [
           {
-            "path": "videos/rzd_0",
+            "path": "kitchen",
             "count_to_process": "all",
             "only_verified": true,
             "max_bbox_area": 1.0,
-            "min_bbox_area": 0.0015
-          },
-          {
-            "path": "videos/rzd_1",
-            "count_to_process": "all",
-            "only_verified": true,
-            "max_bbox_area": 1.0,
-            "min_bbox_area": 0.0015
-          },
-          {
-            "path": "videos/rzd_5",
-            "count_to_process": "all",
-            "only_verified": true,
-            "max_bbox_area": 1.0,
-            "min_bbox_area": 0.0015
-          },
-          {
-            "path": "videos/rzd_many_peoples_0",
-            "count_to_process": "all",
-            "only_verified": true,
-            "max_bbox_area": 1.0,
-            "min_bbox_area": 0.0015
-          },
-          {
-            "path": "videos/rzd_many_peoples_1",
-            "count_to_process": "all",
-            "only_verified": true,
-            "max_bbox_area": 1.0,
-            "min_bbox_area": 0.0015
+            "min_bbox_area": 0.0005
           }
         ],
         "train_times":          1,
