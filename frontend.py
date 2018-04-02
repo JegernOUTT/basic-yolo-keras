@@ -497,4 +497,5 @@ class YOLO(object):
                                  epochs=nb_epoch, verbose=1, validation_data=valid_batch,
                                  validation_steps=len(valid_batch) * valid_times,
                                  callbacks=[early_stop, reduce_lrt, TerminateOnNaN(), checkpoint, tensorboard],
-                                 workers=8, use_multiprocessing=True, max_queue_size=8)
+                                 workers=8, use_multiprocessing=False, max_queue_size=1,
+                                 initial_epoch=28)

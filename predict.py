@@ -91,7 +91,12 @@ def _main_(args):
     # video_reader = cv2.VideoCapture('/media/oem/022cfb2b-3c52-4dfe-a5fb-c5fe826db5e3/samples/queues/x5shop/BAD_2_THE_BONE_x5_p9.avi')
     # video_reader = cv2.VideoCapture('/media/oem/022cfb2b-3c52-4dfe-a5fb-c5fe826db5e3/samples/queues/x5shop/AC-D4031 21_20140208-123300--20140208-125100.avi')
     # video_reader = cv2.VideoCapture('/media/oem/022cfb2b-3c52-4dfe-a5fb-c5fe826db5e3/samples/queues/x5shop/AC-D4031 2_3.avi')
-    video_reader = cv2.VideoCapture('/media/oem/022cfb2b-3c52-4dfe-a5fb-c5fe826db5e3/samples/очереди/кассы 8-9_20171110-192101--20171110-192601.avi')
+
+    video_reader = cv2.VideoCapture('/media/oem/022cfb2b-3c52-4dfe-a5fb-c5fe826db5e3/samples/очереди/Lanser 3MP-16 10_20171110-193448--20171110-194108.avi')
+    # video_reader = cv2.VideoCapture('/media/oem/022cfb2b-3c52-4dfe-a5fb-c5fe826db5e3/samples/очереди/кассы 8-9_20171110-192101--20171110-192601.avi')
+    # video_reader = cv2.VideoCapture('/media/oem/022cfb2b-3c52-4dfe-a5fb-c5fe826db5e3/samples/очереди/Проход касса 2-3_20180327-122122--20180327-122613.avi')
+    # video_reader = cv2.VideoCapture('/media/oem/022cfb2b-3c52-4dfe-a5fb-c5fe826db5e3/samples/очереди/Проход касса 6-7_20180327-142813--20180327-143313.avi')
+    # video_reader = cv2.VideoCapture('/media/oem/022cfb2b-3c52-4dfe-a5fb-c5fe826db5e3/samples/очереди/Проход касса 16-17_20180327-112348--20180327-113348.tmp.avi')
 
     nb_frames = int(video_reader.get(cv2.CAP_PROP_FRAME_COUNT))
 

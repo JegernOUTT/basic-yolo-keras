@@ -9,11 +9,12 @@ import numpy as np
 import imgaug as ia
 from PIL import Image
 from imgaug import augmenters as iaa
+from imgaug.augmenters import Augmenter
 from keras.utils import Sequence
 from utils import BoundBox, normalize, bbox_iou
 
 
-def load_images(config):
+def load_images(config, skip_empty=True):
     images_dir = config['train']['images_dir']
 
     train_last_image_index = 0
@@ -25,9 +26,10 @@ def load_images(config):
     # Train dataset loading
     for dataset in config['train']['datasets_to_train']:
         current_path = os.path.join(images_dir, dataset['path'])
-        assert os.path.isfile(os.path.join(current_path, 'annotations.pickle')) or \
-            os.path.isfile(os.path.join(current_path, 'annotations.json')), \
-            "Error path: {}".format(os.path.join(current_path, 'annotations.pickle'))
+
+        if not skip_empty and not (os.path.isfile(os.path.join(current_path, 'annotations.pickle')) or
+                                   os.path.isfile(os.path.join(current_path, 'annotations.json'))):
+            assert False, "Error path: {}".format(os.path.join(current_path, 'annotations.pickle'))
 
         if os.path.isfile(os.path.join(current_path, 'annotations.pickle')):
             with open(os.path.join(current_path, 'annotations.pickle'), 'rb') as f:
@@ -51,10 +53,13 @@ def load_images(config):
 
         if len(train_data['categories']) == 0:
             train_data['categories'] = annotations['categories']
+        elif len(annotations['categories']) == 0:
+            pass
         else:
-            assert sorted(list(map(lambda x: (x['id'], x['name']), annotations['categories']))) == \
-                   sorted(list(map(lambda x: (x['id'], x['name']), train_data['categories']))), \
-                'Categories must be same in all datasets'
+            current_categories = set(map(lambda x: (x['id'], x['name']), annotations['categories']))
+            for category in train_data['categories']:
+                cat = (category['id'], category['name'])
+                assert cat in current_categories, 'Categories ids must be same in all datasets'
 
         image_id_to_image = {image['id']: image for image in annotations['images']}
         images_with_annotations = {image['id']: [] for image in annotations['images']}
@@ -72,8 +77,6 @@ def load_images(config):
 
             images_with_annotations[annotation['image_id']].append(annotation)
 
-        images_with_annotations = {image_id: anns for image_id, anns in images_with_annotations.items()
-                                   if len(anns) > 0}
         for image_id, anns in images_with_annotations.items():
             image, anns = deepcopy(image_id_to_image[image_id]), deepcopy(anns)
             image['id'] = train_last_image_index
@@ -81,7 +84,6 @@ def load_images(config):
                 annotation['image_id'] = train_last_image_index
             train_data['images_with_annotations'].append((image, anns))
             train_last_image_index += 1
-
 
     val_last_image_index = 0
     validation_data = {
@@ -92,8 +94,9 @@ def load_images(config):
     # Validation dataset loading
     for dataset in config['train']['datasets_to_validate']:
         current_path = os.path.join(images_dir, dataset['path'])
-        assert os.path.isfile(os.path.join(current_path, 'annotations.pickle')) or \
-            os.path.isfile(os.path.join(current_path, 'annotations.json'))
+        if not skip_empty and not (os.path.isfile(os.path.join(current_path, 'annotations.pickle')) or
+                                   os.path.isfile(os.path.join(current_path, 'annotations.json'))):
+            assert False, "Error path: {}".format(os.path.join(current_path, 'annotations.pickle'))
 
         if os.path.isfile(os.path.join(current_path, 'annotations.pickle')):
             with open(os.path.join(current_path, 'annotations.pickle'), 'rb') as f:
@@ -117,10 +120,13 @@ def load_images(config):
 
         if len(validation_data['categories']) == 0:
             validation_data['categories'] = annotations['categories']
+        elif len(annotations['categories']) == 0:
+            pass
         else:
-            assert map(lambda x: (x['id'], x['name']), annotations['categories']) == \
-                   map(lambda x: (x['id'], x['name']), validation_data['categories']), \
-                'Categories must be same in all datasets'
+            current_categories = set(map(lambda x: (x['id'], x['name']), annotations['categories']))
+            for category in train_data['categories']:
+                cat = (category['id'], category['name'])
+                assert cat in current_categories, 'Categories ids must be same in all datasets'
 
         image_id_to_image = {image['id']: image for image in annotations['images']}
         images_with_annotations = {image['id']: [] for image in annotations['images']}
@@ -137,8 +143,6 @@ def load_images(config):
 
             images_with_annotations[annotation['image_id']].append(annotation)
 
-        images_with_annotations = {image_id: anns for image_id, anns in images_with_annotations.items()
-                                   if len(anns) > 0}
         for image_id, anns in images_with_annotations.items():
             image, anns = deepcopy(image_id_to_image[image_id]), deepcopy(anns)
             image['id'] = val_last_image_index
@@ -166,54 +170,26 @@ class BatchGenerator(Sequence):
 
         sometimes = lambda aug: iaa.Sometimes(1., aug)
 
-        # Define our sequence of augmentation steps that will be applied to every image
-        # All augmenters with per_channel=0.5 will sample one value _per image_
-        # in 50% of all cases. In all other cases they will sample new values
-        # _per channel_.
         self.aug_pipe = iaa.Sequential(
             [
-                # sometimes(iaa.Crop(percent=(0, 0.1))),
-                # sometimes(iaa.Affine(
-                #     scale={"x": (0.8, 1.2), "y": (0.8, 1.2)},
-                #     translate_percent={"x": (-0.2, 0.2), "y": (-0.2, 0.2)},
-                #     rotate=(-25, 25),
-                #     shear=(-8, 8),
-                # )),
-                # execute 0 to 5 of the following (less important) augmenters per image
-                # don't execute all of them, as that would often be way too strong
                 iaa.SomeOf((0, 5),
                            [
-                               # sometimes(iaa.Superpixels(p_replace=(0, 1.0), n_segments=(20, 200))), # convert images into their superpixel representation
                                iaa.OneOf([
-                                   iaa.GaussianBlur((0, 3.0)),  # blur images with a sigma between 0 and 3.0
-                                   iaa.AverageBlur(k=(2, 7)),
-                                   # blur image using local means with kernel sizes between 2 and 7
-                                   iaa.MedianBlur(k=(3, 11)),
-                                   # blur image using local medians with kernel sizes between 2 and 7
+                                   iaa.GaussianBlur((0, 2.0)),
+                                   iaa.AverageBlur(k=(2, 5)),
+                                   iaa.MedianBlur(k=(1, 7)),
                                ]),
-                               iaa.Sharpen(alpha=(0, 1.0), lightness=(0.75, 1.5)),  # sharpen images
-                               # iaa.Emboss(alpha=(0, 1.0), strength=(0, 2.0)), # emboss images
-                               # search either for all edges or for directed edges
+                               iaa.Sharpen(alpha=(0, 0.5), lightness=(0.75, 1.5)),  # sharpen images
                                sometimes(iaa.OneOf([
-                                  iaa.EdgeDetect(alpha=(0, 0.7)),
-                                  iaa.DirectedEdgeDetect(alpha=(0, 0.7), direction=(0.0, 1.0)),
+                                   iaa.EdgeDetect(alpha=(0, 0.5)),
+                                   iaa.DirectedEdgeDetect(alpha=(0, 0.5), direction=(0.0, 1.0)),
                                ])),
                                iaa.AdditiveGaussianNoise(loc=0, scale=(0.0, 0.005 * 255), per_channel=0.5),
-                               # add gaussian noise to images
-                               iaa.OneOf([
-                                   iaa.Dropout((0.01, 0.1), per_channel=0.5),  # randomly remove up to 10% of the pixels
-                                   # iaa.CoarseDropout((0.03, 0.15), size_percent=(0.02, 0.05), per_channel=0.2),
-                               ]),
-                               # iaa.Invert(0.05, per_channel=True), # invert color channels
                                iaa.Add((-10, 10), per_channel=0.5),
-                               # change brightness of images (by -10 to 10 of original value)
-                               iaa.Multiply((0.5, 1.5), per_channel=0.5),
-                               # change brightness of images (50-150% of original value)
-                               iaa.ContrastNormalization((0.5, 2.0), per_channel=0.5),  # improve or worsen the contrast
-                               iaa.Grayscale(alpha=(0.0, 1.0)),
+                               iaa.Multiply((0.8, 1.2), per_channel=0.5),
+                               iaa.ContrastNormalization((0.5, 1.5), per_channel=0.5),
+                               iaa.Grayscale(alpha=(0.0, 0.5)),
                                sometimes(iaa.ElasticTransformation(alpha=(0.5, 3.5), sigma=0.25)),
-                               # move pixels locally around (with random strengths)
-                               # sometimes(iaa.PiecewiseAffine(scale=(0.01, 0.05))) # sometimes move parts of the image around
                            ],
                            random_order=True
                            )
@@ -225,7 +201,7 @@ class BatchGenerator(Sequence):
             np.random.shuffle(self.images['images_with_annotations'])
 
     def __len__(self):
-        return int(np.ceil(float(len(self.images['images_with_annotations'])) / self.config['BATCH_SIZE']))
+        return int(np.ceil(float(len(self.images['images_with_annotations'])) // self.config['BATCH_SIZE']))
 
     def __getitem__(self, idx):
         l_bound = idx * self.config['BATCH_SIZE']
@@ -252,6 +228,7 @@ class BatchGenerator(Sequence):
         for train_instance in self.images['images_with_annotations'][l_bound:r_bound]:
             # augment input image and fix object's position and size
             img, all_objs = self.aug_image(train_instance, self.images['categories'], self.jitter)
+            img, all_objs = self.fill_some_boxes_with_noise(img, all_objs)
 
             # construct output from object's x, y, w, h
             true_box_index = 0
@@ -315,8 +292,6 @@ class BatchGenerator(Sequence):
             # increase instance counter in current batch
             instance_count += 1
 
-            # print ' new batch created', idx
-
         return [x_batch, b_batch], y_batch
 
     def on_epoch_end(self):
@@ -337,10 +312,10 @@ class BatchGenerator(Sequence):
             print('Cannot find ', image['file_name'])
 
         aug_pipe_deterministic = self.aug_pipe.to_deterministic()
-        all_objs = list(map(lambda x: {'xmin': int(w * x['bbox'][0][0]), 'ymin': int(h * x['bbox'][0][1]),
-                                       'xmax': int(w * x['bbox'][1][0]), 'ymax': int(h * x['bbox'][1][1]),
-                                       'name': categories[x['category_id']]},
-                            annotations))
+        all_objs = [{'xmin': int(w * x['bbox'][0][0]), 'ymin': int(h * x['bbox'][0][1]),
+                     'xmax': int(w * x['bbox'][1][0]), 'ymax': int(h * x['bbox'][1][1]),
+                     'name': categories[x['category_id']]}
+                    for x in annotations if x['category_id'] in categories]
 
         bbs = ia.BoundingBoxesOnImage([ia.BoundingBox(x1=obj['xmin'], y1=obj['ymin'], x2=obj['xmax'],
                                                       y2=obj['ymax'], name=obj['name'])
@@ -356,3 +331,17 @@ class BatchGenerator(Sequence):
                 .cut_out_of_image().remove_out_of_image()
 
         return image, bbs.bounding_boxes
+
+    def fill_some_boxes_with_noise(self, image, bounding_boxes, percent_of_boxes_to_fill=0.2):
+        if len(bounding_boxes) == 0:
+            return image, bounding_boxes
+
+        boxes_to_remove = np.random.choice(bounding_boxes,
+                                           int(percent_of_boxes_to_fill * len(bounding_boxes)))
+        correct_boxes = [bbox for bbox in bounding_boxes if bbox not in boxes_to_remove]
+
+        image = cv2.fillPoly(image, pts=np.array([[[box.x1, box.y1], [box.x2, box.y1],
+                                                   [box.x2, box.y2], [box.x1, box.y2]]
+                                                  for box in boxes_to_remove], np.int), color=[0, 0, 0])
+
+        return image, correct_boxes

@@ -20,8 +20,8 @@ from preprocessing import *
 generator_config = {
     'IMAGE_H': 608,
     'IMAGE_W': 608,
-    'GRID_H': 20,
-    'GRID_W': 20,
+    'GRID_H': 19,
+    'GRID_W': 19,
     'BOX': 5,
     'LABELS': ['person'],
     'CLASS': 1,

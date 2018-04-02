@@ -271,7 +271,6 @@ class FullYoloV3Feature(BaseFeatureExtractor):
         pass
 
 
-
 class TinyYoloFeature(BaseFeatureExtractor):
     """docstring for ClassName"""
     def __init__(self, input_size):
@@ -434,12 +433,12 @@ class ResNet50Feature(BaseFeatureExtractor):
     def __init__(self, input_size):
         resnet50 = ResNet50(input_shape=(input_size, input_size, 3), include_top=False, 
                             weights='imagenet')
-        resnet50.layers.pop() # remove the average pooling layer
+        resnet50.layers.pop()  # remove the average pooling layer
         # resnet50.load_weights(RESNET50_BACKEND_PATH)
 
         self.feature_extractor = Model(resnet50.layers[0].input, resnet50.layers[-1].output)
-        for layer in self.feature_extractor.layers:
-            layer.trainable = False
+        # for layer in self.feature_extractor.layers:
+        #     layer.trainable = False
 
     def normalize(self, image):
         image = image[..., ::-1]
