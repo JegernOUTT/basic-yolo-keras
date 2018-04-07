@@ -10,7 +10,7 @@ from frontend import YOLO
 import json
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = ""
 
 argparser = argparse.ArgumentParser(
     description='Train and validate YOLO_v2 model on any dataset')
@@ -35,7 +35,6 @@ argparser.add_argument(
     '--cuda_device',
     help='Cuda device id')
 
-
 def _main_(args):
     config_path = args.conf
     weights_path = args.weights
@@ -48,7 +47,7 @@ def _main_(args):
     #   Make the model 
     ###############################
 
-    yolo = YOLO(architecture=config['model']['architecture'],
+    yolo = YOLO(backend=config['model']['backend'],
                 input_size=config['model']['input_size'],
                 labels=config['model']['labels'],
                 max_box_per_image=config['model']['max_box_per_image'],
@@ -58,7 +57,6 @@ def _main_(args):
     #   # Load trained weights
     ###############################    
 
-    print(weights_path)
     yolo.load_weights(weights_path)
 
     ###############################
@@ -72,7 +70,7 @@ def _main_(args):
     # video_reader = cv2.VideoCapture('/media/oem/022cfb2b-3c52-4dfe-a5fb-c5fe826db5e3/samples/abandonment/rzd2/left/0.avi')
     # video_reader = cv2.VideoCapture('/media/oem/022cfb2b-3c52-4dfe-a5fb-c5fe826db5e3/samples/abandonment/rzd2/nothing/3.avi')
     #
-    # video_reader = cv2.VideoCapture('maidan.avi')
+    video_reader = cv2.VideoCapture('maidan.avi')
     # video_reader = cv2.VideoCapture('Militari-1.avi')
     # video_reader = cv2.VideoCapture('weed.avi')
     # video_reader = cv2.VideoCapture('orig.avi')
@@ -91,8 +89,7 @@ def _main_(args):
     # video_reader = cv2.VideoCapture('/media/oem/022cfb2b-3c52-4dfe-a5fb-c5fe826db5e3/samples/queues/x5shop/BAD_2_THE_BONE_x5_p9.avi')
     # video_reader = cv2.VideoCapture('/media/oem/022cfb2b-3c52-4dfe-a5fb-c5fe826db5e3/samples/queues/x5shop/AC-D4031 21_20140208-123300--20140208-125100.avi')
     # video_reader = cv2.VideoCapture('/media/oem/022cfb2b-3c52-4dfe-a5fb-c5fe826db5e3/samples/queues/x5shop/AC-D4031 2_3.avi')
-
-    video_reader = cv2.VideoCapture('/media/oem/022cfb2b-3c52-4dfe-a5fb-c5fe826db5e3/samples/очереди/Lanser 3MP-16 10_20171110-193448--20171110-194108.avi')
+    # video_reader = cv2.VideoCapture('/media/oem/022cfb2b-3c52-4dfe-a5fb-c5fe826db5e3/samples/очереди/Lanser 3MP-16 10_20171110-193448--20171110-194108.avi')
     # video_reader = cv2.VideoCapture('/media/oem/022cfb2b-3c52-4dfe-a5fb-c5fe826db5e3/samples/очереди/кассы 8-9_20171110-192101--20171110-192601.avi')
     # video_reader = cv2.VideoCapture('/media/oem/022cfb2b-3c52-4dfe-a5fb-c5fe826db5e3/samples/очереди/Проход касса 2-3_20180327-122122--20180327-122613.avi')
     # video_reader = cv2.VideoCapture('/media/oem/022cfb2b-3c52-4dfe-a5fb-c5fe826db5e3/samples/очереди/Проход касса 6-7_20180327-142813--20180327-143313.avi')
@@ -100,7 +97,7 @@ def _main_(args):
 
     nb_frames = int(video_reader.get(cv2.CAP_PROP_FRAME_COUNT))
 
-    every_nth = 1
+    every_nth = 50
     count = 0
 
     pbar = tqdm(total=nb_frames)

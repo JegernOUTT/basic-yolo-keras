@@ -11,7 +11,7 @@ from PIL import Image
 from imgaug import augmenters as iaa
 from imgaug.augmenters import Augmenter
 from keras.utils import Sequence
-from utils import BoundBox, normalize, bbox_iou
+from utils import BoundBox, bbox_iou
 
 
 def load_images(config, skip_empty=True):
@@ -203,6 +203,26 @@ class BatchGenerator(Sequence):
     def __len__(self):
         return int(np.ceil(float(len(self.images['images_with_annotations'])) // self.config['BATCH_SIZE']))
 
+    def num_classes(self):
+        return len(self.config['LABELS'])
+
+    def size(self):
+        return len(self.images)    
+
+    def load_annotation(self, i):
+        annots = []
+
+        for obj in self.images[i]['object']:
+            annot = [obj['xmin'], obj['ymin'], obj['xmax'], obj['ymax'], self.config['LABELS'].index(obj['name'])]
+            annots += [annot]
+
+        if len(annots) == 0: annots = [[]]
+
+        return np.array(annots)
+
+    def load_image(self, i):
+        return cv2.imread(self.images[i]['filename'])
+
     def __getitem__(self, idx):
         l_bound = idx * self.config['BATCH_SIZE']
         r_bound = (idx + 1) * self.config['BATCH_SIZE']
@@ -228,7 +248,7 @@ class BatchGenerator(Sequence):
         for train_instance in self.images['images_with_annotations'][l_bound:r_bound]:
             # augment input image and fix object's position and size
             img, all_objs = self.aug_image(train_instance, self.images['categories'], self.jitter)
-            img, all_objs = self.fill_some_boxes_with_noise(img, all_objs)
+#           img, all_objs = self.fill_some_boxes_with_noise(img, all_objs)
 
             # construct output from object's x, y, w, h
             true_box_index = 0

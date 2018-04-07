@@ -5,27 +5,29 @@ import tensorflow as tf
 import numpy as np
 import os
 import cv2
+from utils import decode_netout, compute_overlap, compute_ap, ModelCheckpointDetached
 from keras.applications.mobilenet import MobileNet
 from keras.layers.merge import concatenate
 from keras.optimizers import SGD, Adam, RMSprop
 from preprocessing import BatchGenerator
 from keras.callbacks import EarlyStopping, ModelCheckpoint, TensorBoard, TerminateOnNaN, ReduceLROnPlateau
 from keras.utils import multi_gpu_model
-from utils import BoundBox, ModelCheckpointDetached
+from utils import BoundBox
+from utils import decode_netout, compute_overlap, compute_ap
 from backend import TinyYoloFeature, FullYoloFeature, MobileNetFeature, SqueezeNetFeature, Inception3Feature, VGG16Feature, ResNet50Feature, InceptionResNetV2Feature
 
 
 class YOLO(object):
-    def __init__(self, architecture, input_size, labels, max_box_per_image, anchors):
+    def __init__(self, backend, input_size, labels, max_box_per_image, anchors):
 
         self.input_size = input_size
-        
+
         self.labels = list(labels)
         self.nb_class = len(self.labels)
         self.nb_box   = len(anchors)//2
         self.class_wt = np.ones(self.nb_class, dtype='float32')
         self.anchors = anchors
-        self.architecture = architecture
+        self.backend = backend
 
         self.max_box_per_image = max_box_per_image
 
@@ -37,21 +39,21 @@ class YOLO(object):
         input_image = Input(shape=(self.input_size, self.input_size, 3))
         self.true_boxes = Input(shape=(1, 1, 1, max_box_per_image , 4))
 
-        if architecture == 'Inception3':
+        if backend == 'Inception3':
             self.feature_extractor = Inception3Feature(self.input_size)
-        elif architecture == 'SqueezeNet':
+        elif backend == 'SqueezeNet':
             self.feature_extractor = SqueezeNetFeature(self.input_size)
-        elif architecture == 'MobileNet':
+        elif backend == 'MobileNet':
             self.feature_extractor = MobileNetFeature(self.input_size)
-        elif architecture == 'Full Yolo':
+        elif backend == 'Full Yolo':
             self.feature_extractor = FullYoloFeature(self.input_size)
-        elif architecture == 'Tiny Yolo':
+        elif backend == 'Tiny Yolo':
             self.feature_extractor = TinyYoloFeature(self.input_size)
-        elif architecture == 'VGG16':
+        elif backend == 'VGG16':
             self.feature_extractor = VGG16Feature(self.input_size)
-        elif architecture == 'ResNet50':
+        elif backend == 'ResNet50':
             self.feature_extractor = ResNet50Feature(self.input_size)
-        elif architecture == 'InceptionResNet':
+        elif backend == 'InceptionResNet':
             self.feature_extractor = InceptionResNetV2Feature(self.input_size)
         else:
             raise Exception('Architecture not supported! Only support Full Yolo, Tiny Yolo, MobileNet, SqueezeNet, '
@@ -61,13 +63,10 @@ class YOLO(object):
         self.grid_h, self.grid_w = self.feature_extractor.get_output_shape()
         features = self.feature_extractor.extract(input_image)
 
-        #features = Dense(self.nb_box * (4 + 1 + self.nb_class),
-        #                 activation="softmax",
-        #                 kernel_initializer='glorot_uniform')(features)
         output = Conv2D(self.nb_box * (4 + 1 + self.nb_class),
                         (1, 1), strides=(1, 1),
                         padding='same',
-                        name='conv_23',
+                        name='DetectionLayer',
                         kernel_initializer='lecun_normal')(features)
         output = Reshape((self.grid_h, self.grid_w, self.nb_box, 4 + 1 + self.nb_class))(output)
         output = Lambda(lambda args: args[0])([output, self.true_boxes])
@@ -198,13 +197,15 @@ class YOLO(object):
         no_boxes_mask = tf.to_float(coord_mask < self.coord_scale/2.)
         seen = tf.assign_add(seen, 1.)
 
-        true_box_xy, true_box_wh, coord_mask = tf.cond(tf.less(seen, self.warmup_bs),
-                              lambda: [true_box_xy + (0.5 + cell_grid) * no_boxes_mask,
-                                       true_box_wh + tf.ones_like(true_box_wh) * np.reshape(self.anchors, [1,1,1,self.nb_box,2]) * no_boxes_mask,
-                                       tf.ones_like(coord_mask)],
-                              lambda: [true_box_xy,
-                                       true_box_wh,
-                                       coord_mask])
+        true_box_xy, true_box_wh, coord_mask = tf.cond(tf.less(seen, self.warmup_batches + 1),
+                                                       lambda: [true_box_xy + (0.5 + cell_grid) * no_boxes_mask,
+                                                                true_box_wh + tf.ones_like(true_box_wh) * \
+                                                                np.reshape(self.anchors, [1, 1, 1, self.nb_box, 2]) * \
+                                                                no_boxes_mask,
+                                                                tf.ones_like(coord_mask)],
+                                                       lambda: [true_box_xy,
+                                                                true_box_wh,
+                                                                coord_mask])
 
         """
         Finalize the loss
@@ -219,7 +220,9 @@ class YOLO(object):
         loss_class = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=true_box_class, logits=pred_box_class)
         loss_class = tf.reduce_sum(loss_class * class_mask) / (nb_class_box + 1e-6)
 
-        loss = loss_xy + loss_wh + loss_conf + loss_class
+        loss = tf.cond(tf.less(seen, self.warmup_batches+1), 
+                      lambda: loss_xy + loss_wh + loss_conf + loss_class + 10,
+                      lambda: loss_xy + loss_wh + loss_conf + loss_class)
 
         if self.debug:
             nb_true_box = tf.reduce_sum(y_true[..., 4])
@@ -228,7 +231,6 @@ class YOLO(object):
             current_recall = nb_pred_box/(nb_true_box + 1e-6)
             total_recall = tf.assign_add(total_recall, current_recall)
 
-            loss = tf.Print(loss, [tf.zeros((1))], message='Dummy Line \t', summarize=1000)
             loss = tf.Print(loss, [loss_xy], message='Loss XY \t', summarize=1000)
             loss = tf.Print(loss, [loss_wh], message='Loss WH \t', summarize=1000)
             loss = tf.Print(loss, [loss_conf], message='Loss Conf \t', summarize=1000)
@@ -296,147 +298,20 @@ class YOLO(object):
     def load_weights(self, weight_path):
         self.model.load_weights(weight_path)
 
-    def predict(self, image):
-        image = cv2.resize(image, (self.input_size, self.input_size))
-        image = self.feature_extractor.normalize(image)
-
-        input_image = image[:, :, ::-1]
-        input_image = np.expand_dims(input_image, 0)
-        dummy_array = dummy_array = np.zeros((1, 1, 1, 1, self.max_box_per_image,4))
-
-        netout = self.model.predict([input_image, dummy_array])[0]
-        boxes  = self.decode_netout(netout)
-
-        return boxes
-
-    def bbox_iou(self, box1, box2):
-        x1_min = box1.x - box1.w/2
-        x1_max = box1.x + box1.w/2
-        y1_min = box1.y - box1.h/2
-        y1_max = box1.y + box1.h/2
-
-        x2_min = box2.x - box2.w/2
-        x2_max = box2.x + box2.w/2
-        y2_min = box2.y - box2.h/2
-        y2_max = box2.y + box2.h/2
-
-        intersect_w = self.interval_overlap([x1_min, x1_max], [x2_min, x2_max])
-        intersect_h = self.interval_overlap([y1_min, y1_max], [y2_min, y2_max])
-
-        intersect = intersect_w * intersect_h
-
-        union = box1.w * box1.h + box2.w * box2.h - intersect
-
-        return float(intersect) / union
-
-    def interval_overlap(self, interval_a, interval_b):
-        x1, x2 = interval_a
-        x3, x4 = interval_b
-
-        if x3 < x1:
-            if x4 < x1:
-                return 0
-            else:
-                return min(x2, x4) - x1
-        else:
-            if x2 < x3:
-                return 0
-            else:
-                return min(x2, x4) - x3
-
-    def decode_netout(self, netout, obj_threshold=0.3, nms_threshold=0.3):
-        grid_h, grid_w, nb_box = netout.shape[:3]
-
-        boxes = []
-
-        # decode the output by the network
-        netout[..., 4]  = self.sigmoid(netout[..., 4])
-        netout[..., 5:] = netout[..., 4][..., np.newaxis] * self.softmax(netout[..., 5:])
-        netout[..., 5:] *= netout[..., 5:] > obj_threshold
-
-        for row in range(grid_h):
-            for col in range(grid_w):
-                for b in range(nb_box):
-                    # from 4th element onwards are confidence and class classes
-                    classes = netout[row, col, b, 5:]
-
-                    if np.sum(classes) > 0:
-                        # first 4 elements are x, y, w, and h
-                        x, y, w, h = netout[row, col, b, :4]
-
-                        x = (col + self.sigmoid(x)) / grid_w # center position, unit: image width
-                        y = (row + self.sigmoid(y)) / grid_h # center position, unit: image height
-                        w = self.anchors[2 * b + 0] * np.exp(w) / grid_w # unit: image width
-                        h = self.anchors[2 * b + 1] * np.exp(h) / grid_h # unit: image height
-                        confidence = netout[row, col, b, 4]
-
-                        box = BoundBox(x, y, w, h, confidence, classes)
-
-                        boxes.append(box)
-
-        # suppress non-maximal boxes
-        for c in range(self.nb_class):
-            sorted_indices = list(reversed(np.argsort([box.classes[c] for box in boxes])))
-
-            for i in range(len(sorted_indices)):
-                index_i = sorted_indices[i]
-
-                if boxes[index_i].classes[c] == 0:
-                    continue
-                else:
-                    for j in range(i+1, len(sorted_indices)):
-                        index_j = sorted_indices[j]
-
-                        if self.bbox_iou(boxes[index_i], boxes[index_j]) >= nms_threshold:
-                            boxes[index_j].classes[c] = 0
-
-        # remove the boxes which are less likely than a obj_threshold
-        boxes = [box for box in boxes if box.get_score() > obj_threshold]
-
-        return boxes
-
-    def sigmoid(self, x):
-        return 1. / (1. + np.exp(-x))
-
-    def softmax(self, x, axis=-1, t=-100.):
-        x = x - np.max(x)
-
-        if np.min(x) < t:
-            x = x/np.min(x)*t
-
-        e_x = np.exp(x)
-
-        return e_x / e_x.sum(axis, keepdims=True)
-
     def train(self, train_imgs, valid_imgs,
               train_times, valid_times, object_scale, no_object_scale,
-              coord_scale, class_scale, nb_epoch, learning_rate, batch_size, warmup_epochs,
+              coord_scale, class_scale, nb_epochs, learning_rate, batch_size, warmup_epochs,
               multi_gpu, saved_weights_dir, save_every_n_epoch, debug):
-
         self.batch_size = batch_size
-        self.warmup_bs = warmup_epochs * (train_times * (len(train_imgs) / batch_size + 1)
-                                          + valid_times * (len(valid_imgs) / batch_size + 1))
-
         self.multi_gpu = multi_gpu
         self.object_scale = object_scale
         self.no_object_scale = no_object_scale
         self.coord_scale = coord_scale
         self.class_scale = class_scale
-
         self.debug = debug
 
-        if warmup_epochs > 0:
-            nb_epoch = warmup_epochs  # if it's warmup stage, don't train more than warmup_epochs
-
-        ############################################
-        # Compile the model
-        ############################################
-
-        optimizer = Adam(lr=learning_rate, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0)
         if self.multi_gpu:
             self.model = multi_gpu_model(self.model, gpus=2)
-        self.model.compile(loss=self.custom_loss, optimizer=optimizer, metrics=['accuracy', self.recall_metric])
-
         ############################################
         # Make train and validation generators
         ############################################
@@ -454,38 +329,46 @@ class YOLO(object):
             'TRUE_BOX_BUFFER': self.max_box_per_image,
         }
 
-        train_batch = BatchGenerator(train_imgs,
-                                     generator_config,
-                                     norm=self.feature_extractor.normalize)
-        valid_batch = BatchGenerator(valid_imgs,
-                                     generator_config,
-                                     norm=self.feature_extractor.normalize,
-                                     jitter=False)
+        train_generator = BatchGenerator(train_imgs,
+                                         generator_config,
+                                         norm=self.feature_extractor.normalize)
+        valid_generator = BatchGenerator(valid_imgs,
+                                         generator_config,
+                                         norm=self.feature_extractor.normalize,
+                                         jitter=False)
+                                     
+        self.warmup_batches  = warmup_epochs * (train_times * len(train_generator) + valid_times * len(valid_generator))
+
+        ############################################
+        # Compile the model
+        ############################################
+
+        optimizer = Adam(lr=learning_rate, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0)
+        self.model.compile(loss=self.custom_loss, optimizer=optimizer, metrics=['accuracy', self.recall_metric])
 
         ############################################
         # Make a few callbacks
         ############################################
 
-        monitor_metric, metric_mode = 'val_loss', 'min'
+        monitor_metric, metric_mode = 'val_recall', 'max'
 
         early_stop = EarlyStopping(monitor=monitor_metric, min_delta=0.0001,
                                    patience=20, mode=metric_mode, verbose=1)
 
-        reduce_lrt = ReduceLROnPlateau(monitor=monitor_metric, verbose=1, patience=20,
+        reduce_lrt = ReduceLROnPlateau(monitor=monitor_metric, verbose=1, patience=5,
                                        mode=metric_mode, min_lr=1e-07, factor=0.8)
 
         CheckpointModel = ModelCheckpointDetached if self.multi_gpu else ModelCheckpoint
 
         if not os.path.exists(saved_weights_dir):
             os.mkdir(saved_weights_dir)
-
         checkpoint = CheckpointModel(os.path.join(saved_weights_dir, 'weights.{epoch:02d}-{val_loss:.2f}.h5'),
                                      monitor=monitor_metric, verbose=1, save_best_only=False,
                                      save_weights_only=True, mode=metric_mode, period=save_every_n_epoch)
 
-        architecture_name = self.architecture.replace(' ', '_').lower()
-        tb_counter = len([log for log in os.listdir(os.path.expanduser('~/logs/')) if architecture_name in log]) + 1
-        tensorboard = TensorBoard(log_dir=os.path.expanduser('~/logs/') + architecture_name + '_' + str(tb_counter),
+        backend_name = self.backend.replace(' ', '_').lower()
+        tb_counter = len([log for log in os.listdir(os.path.expanduser('~/logs/')) if backend_name in log]) + 1
+        tensorboard = TensorBoard(log_dir=os.path.expanduser('~/logs/') + backend_name + '_' + str(tb_counter),
                                   histogram_freq=0, batch_size=self.batch_size, write_graph=True,
                                   write_images=True)
 
@@ -493,9 +376,151 @@ class YOLO(object):
         # Start the training process
         ############################################
 
-        self.model.fit_generator(generator=train_batch, steps_per_epoch=len(train_batch) * train_times,
-                                 epochs=nb_epoch, verbose=1, validation_data=valid_batch,
-                                 validation_steps=len(valid_batch) * valid_times,
+        self.model.fit_generator(generator=train_generator,
+                                 steps_per_epoch=len(train_generator) * train_times,
+                                 epochs=warmup_epochs + nb_epochs,
+                                 verbose=1 if debug else 2,
+                                 validation_data= valid_generator,
+                                 validation_steps=len(valid_generator) * valid_times,
                                  callbacks=[early_stop, reduce_lrt, TerminateOnNaN(), checkpoint, tensorboard],
-                                 workers=8, use_multiprocessing=False, max_queue_size=1,
-                                 initial_epoch=28)
+                                 workers=8,
+                                 initial_epoch=0,
+                                 use_multiprocessing=False,
+                                 max_queue_size=8)
+
+        ############################################
+        # Compute mAP on the validation set
+        ############################################
+        average_precisions = self.evaluate(valid_generator)     
+
+        # print evaluation
+        for label, average_precision in average_precisions.items():
+            print(self.labels[label], '{:.4f}'.format(average_precision))
+        print('mAP: {:.4f}'.format(sum(average_precisions.values()) / len(average_precisions)))         
+
+    def evaluate(self, generator, iou_threshold=0.3, score_threshold=0.3,
+                 max_detections=100, save_path=None):
+        """ Evaluate a given dataset using a given model.
+        code originally from https://github.com/fizyr/keras-retinanet
+
+        # Arguments
+            generator       : The generator that represents the dataset to evaluate.
+            model           : The model to evaluate.
+            iou_threshold   : The threshold used to consider when a detection is positive or negative.
+            score_threshold : The score confidence threshold to use for detections.
+            max_detections  : The maximum number of detections to use per image.
+            save_path       : The path to save images with visualized detections to.
+        # Returns
+            A dict mapping class names to mAP scores.
+        """    
+        # gather all detections and annotations
+        all_detections     = [[None for i in range(generator.num_classes())] for j in range(generator.size())]
+        all_annotations    = [[None for i in range(generator.num_classes())] for j in range(generator.size())]
+
+        for i in range(generator.size()):
+            raw_image = generator.load_image(i)
+
+            # make the boxes and the labels
+            pred_boxes  = self.predict(raw_image)
+            
+            score = np.array([box.score for box in pred_boxes])
+            pred_labels = np.array([box.label for box in pred_boxes])        
+            
+            if len(pred_boxes) > 0:
+                pred_boxes = np.array([[box.xmin, box.ymin, box.xmax, box.ymax, box.score] for box in pred_boxes]) 
+            else:
+                pred_boxes = np.array([[]])  
+            
+            # sort the boxes and the labels according to scores
+            score_sort = np.argsort(-score)
+            pred_labels = pred_labels[score_sort]
+            pred_boxes  = pred_boxes[score_sort]
+            
+            # copy detections to all_detections
+            for label in range(generator.num_classes()):
+                all_detections[i][label] = pred_boxes[pred_labels == label, :]
+                
+            annotations = generator.load_annotation(i)
+            
+            # copy detections to all_annotations
+            for label in range(generator.num_classes()):
+                all_annotations[i][label] = annotations[annotations[:, 4] == label, :4].copy()
+                
+        # compute mAP by comparing all detections and all annotations
+        average_precisions = {}
+        
+        for label in range(generator.num_classes()):
+            false_positives = np.zeros((0,))
+            true_positives  = np.zeros((0,))
+            scores          = np.zeros((0,))
+            num_annotations = 0.0
+
+            for i in range(generator.size()):
+                detections           = all_detections[i][label]
+                annotations          = all_annotations[i][label]
+                num_annotations     += annotations.shape[0]
+                detected_annotations = []
+
+                for d in detections:
+                    scores = np.append(scores, d[4])
+
+                    if annotations.shape[0] == 0:
+                        false_positives = np.append(false_positives, 1)
+                        true_positives  = np.append(true_positives, 0)
+                        continue
+
+                    overlaps            = compute_overlap(np.expand_dims(d, axis=0), annotations)
+                    assigned_annotation = np.argmax(overlaps, axis=1)
+                    max_overlap         = overlaps[0, assigned_annotation]
+
+                    if max_overlap >= iou_threshold and assigned_annotation not in detected_annotations:
+                        false_positives = np.append(false_positives, 0)
+                        true_positives  = np.append(true_positives, 1)
+                        detected_annotations.append(assigned_annotation)
+                    else:
+                        false_positives = np.append(false_positives, 1)
+                        true_positives  = np.append(true_positives, 0)
+
+            # no annotations -> AP for this class is 0 (is this correct?)
+            if num_annotations == 0:
+                average_precisions[label] = 0
+                continue
+
+            # sort by score
+            indices         = np.argsort(-scores)
+            false_positives = false_positives[indices]
+            true_positives  = true_positives[indices]
+
+            # compute false positives and true positives
+            false_positives = np.cumsum(false_positives)
+            true_positives  = np.cumsum(true_positives)
+
+            # compute recall and precision
+            recall    = true_positives / num_annotations
+            precision = true_positives / np.maximum(true_positives + false_positives, np.finfo(np.float64).eps)
+
+            # compute average precision
+            average_precision  = compute_ap(recall, precision)
+            average_precisions[label] = average_precision
+
+        return average_precisions
+
+    def predict(self, image):
+        image_h, image_w, _ = image.shape
+        image = cv2.resize(image, (self.input_size, self.input_size))
+        image = self.feature_extractor.normalize(image)
+
+        input_image = image[:,:,::-1]
+        input_image = np.expand_dims(input_image, 0)
+        dummy_array = np.zeros((1,1,1,1,self.max_box_per_image,4))
+
+        netout = self.model.predict([input_image, dummy_array])[0]
+        boxes  = decode_netout(netout, self.anchors, self.nb_class)
+
+        for i in range(len(boxes)):
+            boxes[i].xmin = int(boxes[i].xmin*image_w)
+            boxes[i].ymin = int(boxes[i].ymin*image_h)
+            boxes[i].xmax = int(boxes[i].xmax*image_w)
+            boxes[i].ymax = int(boxes[i].ymax*image_h)
+
+        return boxes

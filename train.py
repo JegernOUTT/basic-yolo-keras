@@ -20,7 +20,6 @@ argparser.add_argument(
 
 
 def _main_(args):
-
     config_path = args.conf
 
     with open(config_path) as config_buffer:    
@@ -45,7 +44,7 @@ def _main_(args):
     #   Construct the model 
     ###############################
 
-    yolo = YOLO(architecture=config['model']['architecture'],
+    yolo = YOLO(backend             = config['model']['backend'],
                 input_size=config['model']['input_size'],
                 labels=config['model']['labels'],
                 max_box_per_image=config['model']['max_box_per_image'],
@@ -67,7 +66,7 @@ def _main_(args):
                valid_imgs=validation_images,
                train_times=config['train']['train_times'],
                valid_times=1,
-               nb_epoch=config['train']['nb_epoch'],
+               nb_epochs=config['train']['nb_epochs'],
                learning_rate=config['train']['learning_rate'],
                batch_size=config['train']['batch_size'],
                warmup_epochs=config['train']['warmup_epochs'],
